@@ -1,0 +1,132 @@
+generator client {
+  provider      = "prisma-client-js"
+  // "native" covers local dev (Windows/Mac/Linux dev machines). "rhel-openssl-3.0.x" is the
+  // engine Netlify/AWS Lambda's Node runtime needs — without it, Prisma queries fail in
+  // production with a "could not locate the Query Engine" error. Harmless to include locally.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  // SQLite for zero-setup local development. Swap to "postgresql" + a real
+  // DATABASE_URL for production — see ARCHITECTURE.md.
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Room {
+  id               String         @id @default(cuid())
+  slug             String         @unique
+  roomType         String
+  name             String
+  description      String
+  shortDescription String         @default("")
+  capacityAdults   Int
+  capacityChildren Int
+  bedType          String
+  sizeSqm          Int
+  basePriceThb     Int
+  // True until the hotel confirms a real rate/size for this room — see CONTENT-NEEDED.md.
+  // Drives the "indicative" badge shown on the public room pages.
+  isPlaceholder    Boolean        @default(true)
+  // JSON-encoded string[] of feature bullets (e.g. "Deep soaking bathtub"). SQLite has no
+  // native array type; parse/stringify via src/lib/rooms.ts helpers.
+  features         String         @default("[]")
+  status           RoomStatus     @default(ACTIVE)
+  sortOrder        Int            @default(0)
+  images           RoomImage[]
+  availability     Availability[]
+  bookings         Booking[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+enum RoomStatus {
+  ACTIVE
+  HIDDEN
+}
+
+model RoomImage {
+  id        String   @id @default(cuid())
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId    String
+  url       String
+  alt       String
+  sortOrder Int      @default(0)
+}
+
+model Availability {
+  id            String   @id @default(cuid())
+  room          Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId        String
+  date          DateTime
+  availableQty  Int
+  priceThb      Int
+
+  @@unique([roomId, date])
+  @@index([date])
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  reference     String        @unique
+  guestName     String
+  guestEmail    String
+  guestPhone    String
+  checkIn       DateTime
+  checkOut      DateTime
+  adults        Int
+  children      Int
+  room          Room          @relation(fields: [roomId], references: [id])
+  roomId        String
+  roomQuantity  Int           @default(1)
+  subtotalThb   Int
+  taxThb        Int
+  totalThb      Int
+  currency      String        @default("THB")
+  status        BookingStatus @default(PENDING_PAYMENT)
+  specialRequests String?
+  expiresAt     DateTime
+  payments      Payment[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([status, expiresAt])
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  PAID
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  booking           Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingId         String
+  provider          String        @default("2c2p")
+  transactionRef    String        @unique
+  amountThb         Int
+  currency          String        @default("THB")
+  status            PaymentStatus @default(PENDING)
+  responseCode      String?
+  rawPayload        String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+}
