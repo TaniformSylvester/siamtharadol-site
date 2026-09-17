@@ -7,9 +7,10 @@ generator client {
 }
 
 datasource db {
-  // SQLite for zero-setup local development. Swap to "postgresql" + a real
-  // DATABASE_URL for production — see ARCHITECTURE.md.
-  provider = "sqlite"
+  // Postgres (Neon) — see ARCHITECTURE.md. Local dev and the Netlify preview currently share
+  // the same Neon database for simplicity during the client-preview phase; split into separate
+  // dev/prod databases before this handles real bookings.
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
