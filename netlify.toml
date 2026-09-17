@@ -2,5 +2,9 @@
   command = "npm run build"
   publish = ".next"
 
+[build.environment]
+  # Next 16 + Prisma 6 need a modern Node — pin it rather than rely on Netlify's default.
+  NODE_VERSION = "22"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
