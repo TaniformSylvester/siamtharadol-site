@@ -5,8 +5,16 @@ import { sendBookingCancelledEmail } from "@/lib/email";
 
 const HOLD_MINUTES = 15;
 
+// Excludes 0/O/1/I/L — characters guests misread when reading a reference off a screen or
+// confirmation email (see the "ST-E1560I0O" mixup during live testing on 2026-09-18).
+const REFERENCE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+const REFERENCE_LENGTH = 8;
+
 export function generateBookingReference() {
-  const random = Math.random().toString(36).slice(2, 10).toUpperCase();
+  let random = "";
+  for (let i = 0; i < REFERENCE_LENGTH; i++) {
+    random += REFERENCE_ALPHABET[Math.floor(Math.random() * REFERENCE_ALPHABET.length)];
+  }
   return `ST-${random}`;
 }
 

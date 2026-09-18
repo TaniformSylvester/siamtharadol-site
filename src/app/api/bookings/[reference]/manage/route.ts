@@ -5,7 +5,8 @@ import { prisma } from "@/lib/db";
 const bodySchema = z.object({ email: z.string().trim().email() });
 
 // Best-effort per-IP throttle against guessing reference+email combos. Booking references are
-// already high-entropy (ST- + 8 base36 chars), this is defense in depth, not the only barrier.
+// already high-entropy (ST- + 8 chars from a 31-symbol alphabet), this is defense in depth,
+// not the only barrier.
 const attempts = new Map<string, number[]>();
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 10;
@@ -31,7 +32,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
   }
 
-  const booking = await prisma.booking.findUnique({ where: { reference }, include: { room: true } });
+  const booking = await prisma.booking.findUnique({
+    where: { reference: reference.trim().toUpperCase() },
+    include: { room: true },
+  });
   if (!booking || booking.guestEmail.toLowerCase() !== parsed.data.email.toLowerCase()) {
     return NextResponse.json({ error: "We couldn't find a booking matching that reference and email." }, { status: 404 });
   }

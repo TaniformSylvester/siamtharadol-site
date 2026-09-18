@@ -31,7 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
   }
 
-  const booking = await prisma.booking.findUnique({ where: { reference } });
+  const booking = await prisma.booking.findUnique({ where: { reference: reference.trim().toUpperCase() } });
   if (!booking || booking.guestEmail.toLowerCase() !== parsed.data.email.toLowerCase()) {
     return NextResponse.json({ error: "We couldn't find a booking matching that reference and email." }, { status: 404 });
   }
