@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { formatDateDisplay, formatThb } from "@/lib/utils";
 import { StatusBadge } from "@/components/admin/StatusBadge";
+import { CancelBookingButton } from "@/components/admin/CancelBookingButton";
+
+const CANCELLABLE_STATUSES = new Set(["PENDING_PAYMENT", "PAID"]);
 
 export default async function AdminBookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -83,6 +86,12 @@ export default async function AdminBookingDetailPage({ params }: { params: Promi
           </table>
         </div>
       </div>
+
+      {CANCELLABLE_STATUSES.has(booking.status) && (
+        <div className="mt-8">
+          <CancelBookingButton bookingId={booking.id} wasPaid={booking.status === "PAID"} />
+        </div>
+      )}
     </div>
   );
 }
