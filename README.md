@@ -80,7 +80,9 @@ in `prisma/schema.prisma`, point `DATABASE_URL` at your Postgres instance, then 
 
 `/admin` — staff-only, gated by a signed session cookie (see `src/lib/auth.ts`). Covers:
 today's overview (arrivals, departures, occupancy, pending payments, revenue), a searchable
-bookings list, booking detail with payment-transaction history, and room editing.
+bookings list, booking detail with payment-transaction history and a **Cancel Booking** action
+(for phone-in cancellation requests — releases inventory immediately, does not process a
+refund), and room editing.
 
 **Editing rooms** (`/admin/rooms` → Edit): name, descriptions, bed type, size, capacity, base
 rate, the "indicative rate" badge, active/hidden status, the feature-bullet list, and gallery
@@ -176,8 +178,18 @@ Nginx, Docker, etc.). Before deploying:
   correctly but with placeholder rates.
 - **Real 2C2P integration**: current code is sandbox-shaped, not connected to a live account
   (see "2C2P configuration" above).
-- **Transactional email**: booking confirmations and the contact form currently log
-  server-side instead of sending real email — no SMTP/email provider is configured yet.
+- **Transactional email**: booking confirmation and cancellation emails are wired up via
+  [Resend](https://resend.com) (see `src/lib/email/`), but with no `RESEND_API_KEY` set they
+  just log server-side instead of sending — same for the contact form. Set `RESEND_API_KEY` and
+  `EMAIL_FROM` (a verified sending domain) locally and in your host's environment variables to
+  make them real.
+- **Cancellation/refund policy**: guests can self-cancel a `PENDING_PAYMENT` or `PAID` booking
+  from `/book/manage` (reference + email lookup), and staff can cancel on a guest's behalf from
+  `/admin/bookings/[id]`. Both release the held room nights immediately and send a cancellation
+  email. Neither processes an actual refund or enforces day-based eligibility — the hotel has
+  never published a cancellation policy (see CONTENT-NEEDED.md), so refunds for already-paid
+  bookings stay a manual follow-up step. Once the hotel gives real policy terms, add the
+  eligibility check inside `cancelBooking()` in `src/lib/booking.ts`.
 - **Room image uploads**: `/admin/rooms` picks images from a fixed list of already-organized
   photos (`src/content/mediaLibrary.ts`) — there's no upload-a-new-photo pipeline yet. Adding
   new photography still means dropping a file in `public/media` and adding it to that list.

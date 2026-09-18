@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { releaseBookingInventory } from "@/lib/booking";
+import { sendBookingConfirmedEmail } from "@/lib/email";
 
 export type ConfirmPaymentInput = {
   transactionRef: string;
@@ -29,14 +30,14 @@ export class PaymentConfirmError extends Error {
 export async function confirmPayment(input: ConfirmPaymentInput) {
   let payment = await prisma.payment.findUnique({
     where: { transactionRef: input.transactionRef },
-    include: { booking: true },
+    include: { booking: { include: { room: true } } },
   });
 
   if (!payment && input.bookingReference) {
     payment = await prisma.payment.findFirst({
       where: { status: "PENDING", booking: { reference: input.bookingReference } },
       orderBy: { createdAt: "desc" },
-      include: { booking: true },
+      include: { booking: { include: { room: true } } },
     });
   }
 
@@ -58,6 +59,10 @@ export async function confirmPayment(input: ConfirmPaymentInput) {
       await releaseBookingInventory(tx, payment.booking);
     }
   });
+
+  if (input.status === "SUCCESS") {
+    await sendBookingConfirmedEmail(payment.booking);
+  }
 
   return { ok: true as const, alreadyProcessed: false };
 }

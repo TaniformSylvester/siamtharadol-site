@@ -137,6 +137,12 @@ export function ConfirmationStatus({ reference }: { reference: string }) {
           Download / Print Confirmation
         </button>
         <Link
+          href={`/book/manage?ref=${data.reference}`}
+          className="rounded-sm border border-line px-6 py-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-ink-soft transition hover:bg-ink/5"
+        >
+          Manage / Cancel Booking
+        </Link>
+        <Link
           href="/"
           className="rounded-sm border border-line px-6 py-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-ink-soft transition hover:bg-ink/5"
         >

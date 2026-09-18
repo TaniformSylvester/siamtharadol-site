@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { calculateTotals, getNightlyRates } from "@/lib/pricing";
+import { sendBookingCancelledEmail } from "@/lib/email";
 
 const HOLD_MINUTES = 15;
 
@@ -104,6 +105,35 @@ export async function releaseBookingInventory(
       data: { availableQty: { increment: booking.roomQuantity } },
     });
   }
+}
+
+const CANCELLABLE_STATUSES = new Set(["PENDING_PAYMENT", "PAID"]);
+
+/**
+ * Cancels a booking — used by both the admin "cancel on a guest's behalf" action and the
+ * guest-facing self-service cancellation. Releases inventory, marks the booking CANCELLED, and
+ * emails the guest. Never touches Payment rows or processes a refund: the hotel has not
+ * published a cancellation/refund policy (see CONTENT-NEEDED.md), so refund *eligibility* is a
+ * manual staff decision for now — this only stops the room being held. Once a real policy
+ * exists, that's the one place to add eligibility logic (e.g. by comparing `booking.checkIn` to
+ * now) before calling this.
+ */
+export async function cancelBooking(bookingId: string, cancelledBy: "admin" | "guest") {
+  const booking = await prisma.booking.findUnique({ where: { id: bookingId }, include: { room: true } });
+  if (!booking) throw new BookingError("Booking not found.");
+  if (!CANCELLABLE_STATUSES.has(booking.status)) {
+    throw new BookingError(`Booking is already ${booking.status.toLowerCase().replace("_", " ")} — nothing to cancel.`);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await releaseBookingInventory(tx, booking);
+    await tx.booking.update({ where: { id: bookingId }, data: { status: "CANCELLED" } });
+  });
+
+  const wasPaid = booking.status === "PAID";
+  await sendBookingCancelledEmail({ booking, wasPaid, cancelledBy });
+
+  return { wasPaid };
 }
 
 /** Releases inventory for any PENDING_PAYMENT booking whose hold has timed out. */
